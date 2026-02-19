@@ -449,62 +449,65 @@ class App {
     }
 
     initUI() {
-        document.getElementById('toggle-constellations').addEventListener('click', (e) => {
-            this.renderer.showConstellations = !this.renderer.showConstellations;
-            e.target.classList.toggle('active');
-        });
+        try {
+            document.getElementById('toggle-constellations').addEventListener('click', (e) => {
+                this.renderer.showConstellations = !this.renderer.showConstellations;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('toggle-names').addEventListener('click', (e) => {
-            this.renderer.showNames = !this.renderer.showNames;
-            e.target.classList.toggle('active');
-        });
+            document.getElementById('toggle-names').addEventListener('click', (e) => {
+                this.renderer.showNames = !this.renderer.showNames;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('view-zenith').addEventListener('click', () => {
-            this.flyTo(180, 90);
-        });
+            document.getElementById('view-zenith').addEventListener('click', () => {
+                this.flyTo(180, 90);
+            });
 
-        // Tour Button
-        document.getElementById('start-tour').addEventListener('click', () => {
-            this.renderer.showConstellations = true; // Ensure lines are on
-            this.nextTourStop();
-        });
+            // Tour Button
+            document.getElementById('start-tour').addEventListener('click', () => {
+                this.renderer.showConstellations = true; // Ensure lines are on
+                this.nextTourStop();
+            });
 
-        document.getElementById('load-catalog').addEventListener('click', () => {
-            this.loadExternalCatalog();
-        });
+            // Tour Controls
+            document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
+            document.getElementById('close-tour').addEventListener('click', () => {
+                document.getElementById('tour-panel').style.display = 'none';
+            });
 
-        // Tour Controls
-        document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
-        document.getElementById('close-tour').addEventListener('click', () => {
-            document.getElementById('tour-panel').style.display = 'none';
-        });
+            // Set Date
+            const updateTime = () => {
+                const now = new Date();
+                document.getElementById('current-time').innerText = now.toLocaleTimeString();
+            };
+            setInterval(updateTime, 1000);
+            updateTime();
 
-        // Set Date
-        const updateTime = () => {
-            const now = new Date();
-            document.getElementById('current-time').innerText = now.toLocaleTimeString();
-        };
-        setInterval(updateTime, 1000);
-        updateTime();
+            // Interaction - Click/Hover
+            this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
+            this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
 
-        // Interaction - Click/Hover
-        this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
-        this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
+            // Interaction - Drag
+            this.renderer.canvas.addEventListener('mousedown', (e) => {
+                this.renderer.isDragging = true;
+                this.renderer.lastX = e.clientX;
+                this.renderer.lastY = e.clientY;
+                this.renderer.canvas.style.cursor = 'grabbing';
+            });
 
-        // Interaction - Drag
-        this.renderer.canvas.addEventListener('mousedown', (e) => {
-            this.renderer.isDragging = true;
-            this.renderer.lastX = e.clientX;
-            this.renderer.lastY = e.clientY;
-            this.renderer.canvas.style.cursor = 'grabbing';
-        });
+            window.addEventListener('mouseup', () => {
+                this.renderer.isDragging = false;
+                if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
+            });
 
-        window.addEventListener('mouseup', () => {
-            this.renderer.isDragging = false;
-            if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
-        });
+            this.tooltip = document.getElementById('star-tooltip');
 
-        this.tooltip = document.getElementById('star-tooltip');
+            // Debug success
+            console.log("UI Initialized");
+        } catch (e) {
+            alert("UI Init Error: " + e.message);
+        }
     }
 
     flyTo(az, alt) {
@@ -513,59 +516,7 @@ class App {
         this.isAnimating = true;
     }
 
-    async loadExternalCatalog() {
-        const btn = document.getElementById('load-catalog');
-        btn.innerText = "⏳ Descargando...";
-        btn.disabled = true;
-
-        try {
-            // Using d3-celestial's star catalog (mag 6 limit, ~5000 stars)
-            // It's GeoJSON format: coordinates are [RA, Dec]
-            const response = await fetch('https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/stars.6.json');
-            if (!response.ok) throw new Error("Network response was not ok");
-
-            const data = await response.json();
-            const stars = data.features;
-
-            // Clear procedural background stars
-            this.backgroundStars = [];
-
-            // Parse and add new stars
-            stars.forEach(feature => {
-                const ra = feature.geometry.coordinates[0]; // RA in degrees? No, often hours or degrees. d3-celestial uses degrees [-180, 180] or similar.
-                // Checking d3-celestial format: RA is in degrees [0, 360], Dec [-90, 90] usually.
-                // Let's assume degrees and convert to hours if needed.
-                // Wait, typical GeoJSON for sky is RA (deg), Dec (deg).
-                // My engine expects RA in Hours (0-24).
-
-                let raDeg = feature.geometry.coordinates[0];
-                if (raDeg < 0) raDeg += 360;
-
-                const raHours = raDeg / 15;
-                const dec = feature.geometry.coordinates[1];
-                const mag = feature.properties.mag;
-
-                // Exclude very bright stars we already have manually?
-                // Or just draw them all as background (points) and let manual ones (images/labels) overlay.
-                this.backgroundStars.push({
-                    ra: raHours,
-                    dec: dec,
-                    mag: mag,
-                    color: mag < 4 ? "#ffffff" : "#aaaaff" // Simple color based on brightness
-                });
-            });
-
-            btn.innerText = `✅ ${stars.length} Estrellas`;
-            // Flash success
-            setTimeout(() => { btn.style.display = 'none'; }, 3000);
-
-        } catch (error) {
-            console.error("Failed to load catalog:", error);
-            btn.innerText = "❌ Error";
-            btn.disabled = false;
-            alert("No se pudo descargar el catálogo. Verifica tu conexión.");
-        }
-    }
+    // Removed external catalog loading to keep app self-contained and focused on local data
 
     nextTourStop() {
         const now = new Date();
@@ -729,6 +680,26 @@ class App {
             html += `<span class="not-visible">Ninguno por ahora</span>`;
         }
         html += `</div>`;
+
+        // 3. Local Events from Planetario de Medellín
+        if (typeof LOCAL_EVENTS !== 'undefined') {
+            html += `<div class="summary-item" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+                <strong>Eventos del Mes (Planetario Medellín):</strong><br>
+                <ul style="padding-left: 15px; margin: 5px 0; font-size: 0.9em; color: #aaddff;">`;
+
+            // Show next 2 upcoming events
+            const today = now.toISOString().split('T')[0];
+            const upcoming = LOCAL_EVENTS.filter(e => e.date >= today).slice(0, 3);
+
+            if (upcoming.length > 0) {
+                upcoming.forEach(e => {
+                    html += `<li>${e.date.slice(5)}: ${e.desc}</li>`;
+                });
+            } else {
+                html += `<li>Consulta la programación del Planetario.</li>`;
+            }
+            html += `</ul></div>`;
+        }
 
         summaryEl.innerHTML = html;
     }
