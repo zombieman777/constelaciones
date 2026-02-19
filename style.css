@@ -1,0 +1,222 @@
+:root {
+    --bg-color: #050510;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0ff;
+    --accent-gold: #ffd700;
+    --accent-blue: #00ffff;
+    --glass-bg: rgba(20, 20, 40, 0.6);
+    --glass-border: rgba(100, 100, 255, 0.2);
+    --font-main: 'Outfit', sans-serif;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    font-family: var(--font-main);
+    color: var(--text-primary);
+}
+
+#app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+#skyCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at bottom, #0b1026 0%, #000000 100%);
+    z-index: 0;
+}
+
+.ui-layer {
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
+    /* Let clicks pass through to canvas where valid */
+    padding: 20px;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.location-badge {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: var(--glass-bg);
+    padding: 10px 20px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+}
+
+.location-badge h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.location-badge p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.time-badge {
+    font-size: 1.5rem;
+    font-weight: 200;
+    text-shadow: 0 0 10px var(--accent-blue);
+}
+
+/* Main Content */
+main {
+    position: absolute;
+    top: 100px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 300px;
+    pointer-events: auto;
+}
+
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.3s ease;
+}
+
+.glass:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-blue);
+}
+
+.info-panel h2 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.typewriter {
+    font-family: monospace;
+    border-right: 2px solid var(--accent-blue);
+    white-space: pre-wrap;
+    overflow: hidden;
+    animation: blink-caret 0.75s step-end infinite;
+}
+
+@keyframes blink-caret {
+
+    from,
+    to {
+        border-color: transparent
+    }
+
+    50% {
+        border-color: var(--accent-blue)
+    }
+}
+
+.fact-card h3 {
+    margin-top: 0;
+    font-size: 0.9rem;
+    color: var(--accent-gold);
+}
+
+.fact-card p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #ddd;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.summary-panel {
+    top: 20px;
+    right: 20px;
+    /* Opposite side of logo/info */
+    max-width: 250px;
+    text-align: right;
+}
+
+.summary-panel h2 {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: var(--accent);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 5px;
+}
+
+.summary-item {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.visible {
+    color: #aaffaa;
+}
+
+.not-visible {
+    color: #ffaaaa;
+    opacity: 0.7;
+}
+
+.fade-out {
+    opacity: 0;
+}
+
+/* Footer Controls */
+footer {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    pointer-events: auto;
+}
+
+.controls {
+    display: flex;
+    gap: 15px;
+}
+
+.glass-btn {
+    background: var(--glass-bg);
+    color: white;
+    border: 1px solid var(--glass-border);
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.glass-btn:hover {
+    background: rgba(40, 40, 100, 0.8);
+    box-shadow: 0 0 15px var(--accent-blue);
+}
+
+.glass-btn.active {
+    background: var(--accent-blue);
+    color: black;
+    font-weight: bold;
+}

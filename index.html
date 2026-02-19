@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stargazer Envigado</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <canvas id="skyCanvas"></canvas>
+
+        <header class="ui-layer">
+            <div class="location-badge">
+                <span class="icon">📍</span>
+                <div>
+                    <h1>Envigado, Antioquia</h1>
+                    <p id="lat-long">6.1759° N, 75.5917° W</p>
+                </div>
+            </div>
+            <div class="time-badge">
+                <span id="current-time">--:--</span>
+            </div>
+        </header>
+
+        <main class="ui-layer">
+            <div class="info-panel glass">
+                <h2>Agente Astronómico</h2>
+                <div id="agent-message" class="typewriter">
+                    Analizando el cielo nocturno sobre el Valle de Aburrá...
+                </div>
+            </div>
+
+            <div class="facts-container">
+                <div class="fact-card glass">
+                    <h3>💡 Dato Curioso</h3>
+                    <p id="curious-fact">Cargando datos del universo...</p>
+                </div>
+                <div class="fact-card glass">
+                    <div id="observable-place">Escaneando espacio profundo...</div>
+                </div>
+
+                <!-- Tooltip -->
+                <div id="star-tooltip" class="tooltip" style="display: none;">
+                    <h3 id="tooltip-name">Nombre</h3>
+                    <p id="tooltip-dist">Distancia</p>
+                    <p id="tooltip-desc">Descripción...</p>
+                </div>
+
+                <!-- Night Summary -->
+                <div class="panel summary-panel">
+                    <h2>Resumen de esta Noche</h2>
+                    <div id="night-summary-content">
+                        Cargando datos astronómicos...
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="ui-layer">
+            <!-- Constellation Info Panel (Tour) -->
+            <div id="tour-panel" class="panel summary-panel"
+                style="top: 50%; left: 50%; transform: translate(-50%, -50%); right: auto; text-align: center; max-width: 400px; display: none; background: rgba(10, 10, 40, 0.95); border: 1px solid var(--accent-gold);">
+                <h2 id="tour-title" style="color: var(--accent-gold); text-align: center;">Constelación</h2>
+                <p id="tour-desc" style="font-size: 1.1rem; margin: 15px 0;">Descripción...</p>
+                <button id="next-tour" class="control-btn active" style="margin-top: 10px;">Siguiente ➡</button>
+                <button id="close-tour" class="control-btn"
+                    style="margin-top: 10px; background: rgba(255,50,50,0.2);">Cerrar</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button id="start-tour" class="control-btn active" title="Viajar por las constelaciones">🚀 Tour
+                    Constelaciones</button>
+                <button id="toggle-names" class="control-btn active" title="Alternar nombres">🏷️ Nombres</button>
+                <button id="view-zenith" class="control-btn" title="Mirar hacia arriba">🛌 Vista Acostado</button>
+                <button id="load-catalog" class="control-btn" title="Descargar mapa estelar real">📡 Cargar
+                    Catálogo</button>
+            </div>
+
+            <!-- Time Display -->
+    </div>
+    </footer>
+    </div>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
