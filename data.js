@@ -65,6 +65,15 @@ const STARS = [
     { name: "Canopus", ra: 6.399, dec: -52.695, mag: -0.72, color: "#ffffff", dist: "310 años luz", desc: "Segunda estrella más brillante del cielo." }
 ];
 
+const GALAXIES = [
+    { name: "Andrómeda (M31)", ra: 0.712, dec: 41.269, type: "spiral", size: 3, color: "#aaddff", desc: "La galaxia espiral más cercana a la Vía Láctea. Visible a simple vista en cielos oscuros." },
+    { name: "Triángulo (M33)", ra: 1.564, dec: 30.66, type: "spiral", size: 2, color: "#ccddff", desc: "La tercera galaxia más grande del Grupo Local." },
+    { name: "Gran Nube de Magallanes", ra: 5.39, dec: -69.75, type: "irregular", size: 5, color: "#ccaaff", desc: "Galaxia satélite de la Vía Láctea, visible desde el hemisferio sur." },
+    { name: "Pequeña Nube de Magallanes", ra: 0.88, dec: -72.82, type: "irregular", size: 3, color: "#ccaaff", desc: "Otra galaxia satélite vecina." },
+    { name: "Galaxia del Sombrero (M104)", ra: 12.667, dec: -11.62, type: "spiral", size: 1.5, color: "#ffffff", desc: "Famosa por su núcleo brillante y su anillo de polvo." },
+    { name: "Centaura A", ra: 13.42, dec: -43.01, type: "elliptical", size: 2, color: "#ffcc88", desc: "Una de las radiogalaxias más cercanas." }
+];
+
 const CONSTELLATIONS = [
     ["Betelgeuse", "Bellatrix"], ["Betelgeuse", "Alnitak"], ["Rigel", "Saiph"], ["Rigel", "Alnilam"],
     ["Bellatrix", "Mintaka"], ["Mintaka", "Alnilam"], ["Alnilam", "Alnitak"], ["Alnitak", "Saiph"], // Orion

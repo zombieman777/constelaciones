@@ -259,13 +259,13 @@ class SkyRenderer {
         return { x: screenX, y: screenY };
     }
 
-    drawStar(x, y, mag, color, name) {
-        const size = Math.max(0.5, 4 - mag); // Brighter stars = larger radius
+    drawStar(x, y, mag, color, name, scale = 1.0) {
+        const size = Math.max(0.5, 4 - mag) * scale; // Brighter stars = larger radius
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = color;
-        this.ctx.shadowBlur = size * 3;
+        this.ctx.shadowBlur = size * (3 * scale);
         this.ctx.shadowColor = color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0; // Reset
@@ -278,13 +278,13 @@ class SkyRenderer {
         }
     }
 
-    drawPlanet(x, y, planet) {
-        const size = 6;
+    drawPlanet(x, y, planet, scale = 1.0) {
+        const size = 6 * scale;
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = planet.color;
-        this.ctx.shadowBlur = 15;
+        this.ctx.shadowBlur = 15 * scale;
         this.ctx.shadowColor = planet.color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
@@ -298,10 +298,42 @@ class SkyRenderer {
         // Ring for Saturn
         if (planet.name === "Saturno") {
             this.ctx.beginPath();
-            this.ctx.ellipse(x, y, 10, 4, Math.PI / 4, 0, 2 * Math.PI);
+            this.ctx.ellipse(x, y, 10 * scale, 4 * scale, Math.PI / 4, 0, 2 * Math.PI);
             this.ctx.strokeStyle = "rgba(200, 200, 150, 0.5)";
             this.ctx.stroke();
         }
+    }
+
+    drawGalaxy(x, y, galaxy, scale = 1.0) {
+        const size = (galaxy.size * 5) * scale; // Base size multiplier
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        this.ctx.rotate(Math.PI / 6); // Tilt slightly
+
+        // Draw elliptical glow
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+        gradient.addColorStop(0, galaxy.color);
+        gradient.addColorStop(0.4, "rgba(100, 150, 255, 0.2)");
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        this.ctx.fillStyle = gradient;
+
+        this.ctx.beginPath();
+        if (galaxy.type === 'spiral') {
+            this.ctx.ellipse(0, 0, size * 2, size * 0.8, 0, 0, Math.PI * 2);
+        } else {
+            this.ctx.ellipse(0, 0, size * 1.5, size * 1.2, 0, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+
+        // Core
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        this.ctx.fill();
+
+        this.ctx.restore();
     }
 
     drawMoon(x, y, moon) {
@@ -748,7 +780,23 @@ class App {
             }
         });
 
-        // 0.5 Draw Horizon (Mountains)
+        // 0.5 Draw GALAXIES (New - Deep Sky Objects)
+        if (typeof GALAXIES !== 'undefined') {
+            GALAXIES.forEach(galaxy => {
+                const pos = this.engine.equatorialToHorizontal(galaxy.ra, galaxy.dec, lst);
+                const screenPos = this.renderer.project(pos.alt, pos.az);
+
+                if (screenPos) {
+                    const isHovered = this.hoveredObject && this.hoveredObject.name === galaxy.name;
+                    const scale = isHovered ? 1.5 : 1.0;
+
+                    this.renderer.drawGalaxy(screenPos.x, screenPos.y, galaxy, scale);
+                    this.visibleObjects[galaxy.name] = { x: screenPos.x, y: screenPos.y, data: galaxy };
+                }
+            });
+        }
+
+        // 0.6 Draw Horizon (Mountains)
         this.renderer.drawHorizon();
 
         // 1. Bright Stars (Interactive)
@@ -757,6 +805,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
+                // Determine scale based on hover
+                const isHovered = this.hoveredObject && this.hoveredObject.name === star.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
                 // Twinkle effect
                 const time = Date.now() * 0.002;
                 // Unique phase for each star based on its RA
@@ -764,7 +816,7 @@ class App {
                 const twinkle = 0.7 + 0.3 * Math.sin(time + randomPhase);
 
                 this.renderer.ctx.globalAlpha = twinkle;
-                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name);
+                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name, scale);
                 this.renderer.ctx.globalAlpha = 1.0; // Reset
 
                 starMap[star.name] = screenPos;
@@ -780,7 +832,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
-                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet);
+                const isHovered = this.hoveredObject && this.hoveredObject.name === planet.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
+                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet, scale);
                 this.visibleObjects[planet.name] = { x: screenPos.x, y: screenPos.y, data: planet };
             }
         });
