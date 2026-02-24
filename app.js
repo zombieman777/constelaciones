@@ -1,4 +1,5 @@
-const GEMINI_API_KEY = "TU_API_KEY_AQUI"; // Reemplaza esto con tu API Key real de Google Gemini
+let GEMINI_API_KEY = localStorage.getItem('GEMINI_API_KEY') || ""; // Recupera la clave guardada o queda vacía
+let STARLOG = JSON.parse(localStorage.getItem('STARLOG') || "[]"); // Recuperar descubrimientos
 
 // Global Error Handler for debugging
 window.onerror = function (msg, url, line, col, error) {
@@ -217,6 +218,57 @@ class SkyRenderer {
         this.isDragging = false;
         this.lastX = 0;
         this.lastY = 0;
+
+        // Propiedades de zoom para móvil
+        this.lastPinchDistance = null;
+
+        // Añadir listener para rueda (desempeño pasivo false para preventDefault)
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+    }
+
+    handleWheel(e) {
+        e.preventDefault(); // Evita scroll de la página
+
+        // Determinar dirección: e.deltaY > 0 es hacia abajo (alejar), < 0 es hacia arriba (acercar)
+        const zoomStep = 0.1;
+        if (e.deltaY < 0) {
+            this.zoomLevel += zoomStep;
+        } else {
+            this.zoomLevel -= zoomStep;
+        }
+
+        // Limitar zoomLevel entre 0.5 y 5.0
+        this.zoomLevel = Math.max(0.5, Math.min(5.0, this.zoomLevel));
+    }
+
+    handleTouch(e) {
+        if (e.touches.length === 2) {
+            // Prevenir scroll
+            e.preventDefault();
+
+            // Calcular distancia entre dos dedos
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const dist = Math.sqrt(
+                Math.pow(touch2.clientX - touch1.clientX, 2) +
+                Math.pow(touch2.clientY - touch1.clientY, 2)
+            );
+
+            if (this.lastPinchDistance !== null) {
+                // Calcular sensibilidad
+                const deltaDist = dist - this.lastPinchDistance;
+                const zoomSensibility = 0.005;
+
+                this.zoomLevel += deltaDist * zoomSensibility;
+
+                // Limitar zoomLevel entre 0.5 y 5.0
+                this.zoomLevel = Math.max(0.5, Math.min(5.0, this.zoomLevel));
+            }
+
+            this.lastPinchDistance = dist;
+        } else {
+            this.lastPinchDistance = null; // Reiniciar si no hay dos dedos
+        }
     }
 
     resize() {
@@ -381,6 +433,30 @@ class SkyRenderer {
         this.ctx.fillText(`Luna`, x + 20, y + 5);
     }
 
+    drawSatellite(x, y, name) {
+        // Estela simple
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - 10, y + 5);
+        this.ctx.lineTo(x, y);
+        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        this.ctx.lineWidth = 1;
+        this.ctx.stroke();
+
+        // Punto principal muy brillante
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = "#00ffff";
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+
+        // Etiqueta
+        this.ctx.fillStyle = "rgba(100, 255, 255, 0.8)";
+        this.ctx.font = "10px monospace";
+        this.ctx.fillText(name, x + 5, y - 5);
+    }
+
     drawHorizon() {
         // Draw a simple mountain silhouette at Alt = 0
         // We'll calculate screen Y for Alt=0 at various Azimuths
@@ -490,14 +566,21 @@ class App {
             const cloudCover = data.current.cloud_cover;
             const msgEl = document.getElementById('agent-message');
 
-            if (cloudCover < 30) {
-                msgEl.innerText = `Cielo despejado en Envigado (${cloudCover}% nubes). Condiciones ideales para observación.`;
+            // Activar glow si el cielo es perfecto (< 20%)
+            const panels = document.querySelectorAll('.glass');
+            if (cloudCover < 20) {
+                msgEl.innerText = `¡Alerta Estelar! Cielo ultra-despejado en Envigado (${cloudCover}% nubes). Saca tu telescopio ahora mismo.`;
+                msgEl.style.color = '#00ffff';
+                msgEl.style.fontWeight = 'bold';
+                panels.forEach(p => p.classList.add('clear-sky-glow'));
+            } else if (cloudCover < 50) {
+                msgEl.innerText = `Cielo parcialmente despejado (${cloudCover}% nubes). Buenas condiciones para observar cuerpos brillantes.`;
                 msgEl.style.color = 'var(--accent-blue)';
-            } else if (cloudCover < 70) {
-                msgEl.innerText = `Parcialmente nublado (${cloudCover}% nubes). Podrás ver las estrellas más brillantes.`;
+                panels.forEach(p => p.classList.remove('clear-sky-glow'));
             } else {
                 msgEl.innerText = `Cielo muy nublado (${cloudCover}% nubes). La visibilidad es reducida hoy.`;
                 msgEl.style.color = 'var(--accent-gold)';
+                panels.forEach(p => p.classList.remove('clear-sky-glow'));
             }
             msgEl.classList.remove('typewriter');
             msgEl.style.borderRight = 'none';
@@ -523,8 +606,8 @@ class App {
         msgEl.style.color = 'var(--text-primary)';
 
         try {
-            if (GEMINI_API_KEY === "TU_API_KEY_AQUI" || !GEMINI_API_KEY) {
-                msgEl.innerHTML = `<em>Falta la API Key de Gemini en app.js.</em><br><br><strong>Simulación:</strong> Teniendo en cuenta la latitud de Envigado, ${question.length > 5 ? 'Orión' : 'Sirio'} se encuentra en una posición excelente esta noche.`;
+            if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === "") {
+                msgEl.innerHTML = `<em>Falta la API Key de Gemini.</em><br><br>Por favor, haz clic en el ícono del engranaje ⚙️ (arriba a la derecha) para configurar tu clave API de Google Gemini y activar a la IA.`;
                 inputEl.disabled = false;
                 btnEl.disabled = false;
                 return;
@@ -586,6 +669,30 @@ class App {
                 }
             });
 
+            // Vision Nocturna (Modo Rojo)
+            document.getElementById('toggle-red-vision').addEventListener('click', (e) => {
+                document.body.classList.toggle('red-vision');
+                e.target.classList.toggle('active');
+            });
+
+            // Registro de Diario Estelar
+            document.getElementById('btn-log-sighting').addEventListener('click', () => {
+                const name = document.getElementById('tooltip-name').innerText;
+                const today = new Date().toLocaleDateString();
+
+                // Evitar duplicados el mismo día
+                const exists = STARLOG.find(l => l.name === name && l.date === today);
+                if (!exists) {
+                    STARLOG.push({ name, date: today });
+                    localStorage.setItem('STARLOG', JSON.stringify(STARLOG));
+
+                    const btn = document.getElementById('btn-log-sighting');
+                    btn.innerText = "¡Registrado!";
+                    setTimeout(() => btn.innerText = "✅ Registrar", 2000);
+                    this.updateNightSummary(); // Actulizar panel de resumen
+                }
+            });
+
             // IA Events
             const iaInput = document.getElementById('ia-input');
             const iaSend = document.getElementById('ia-send');
@@ -595,6 +702,38 @@ class App {
                 });
                 iaInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.askGemini(e.target.value);
+                });
+            }
+
+            // Configuración Events (Modal)
+            const settingsBtn = document.getElementById('settings-btn');
+            const modal = document.getElementById('settings-modal');
+            const saveBtn = document.getElementById('save-settings-btn');
+            const closeBtn = document.getElementById('close-settings-btn');
+            const apiInput = document.getElementById('api-key-input');
+
+            if (settingsBtn && modal) {
+                settingsBtn.addEventListener('click', () => {
+                    apiInput.value = GEMINI_API_KEY; // Pre-fill with current key
+                    modal.style.display = 'flex';
+                });
+
+                closeBtn.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                });
+
+                saveBtn.addEventListener('click', () => {
+                    const newKey = apiInput.value.trim();
+                    GEMINI_API_KEY = newKey;
+                    localStorage.setItem('GEMINI_API_KEY', newKey);
+                    modal.style.display = 'none';
+                    document.getElementById('agent-message').innerText = "✅ Configuración guardada. Inteligencia Artificial lista para operar.";
+                    document.getElementById('agent-message').style.color = "var(--accent-gold)";
+                });
+
+                // Cierra si haces clic fuera del recuadro de contenido
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) modal.style.display = 'none';
                 });
             }
 
@@ -633,6 +772,19 @@ class App {
             window.addEventListener('mouseup', () => {
                 this.renderer.isDragging = false;
                 if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
+            });
+
+            // Interaction - Mobile Pinch to Zoom
+            this.renderer.canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    this.renderer.handleTouch(e);
+                }
+            }, { passive: false });
+
+            this.renderer.canvas.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    this.renderer.lastPinchDistance = null;
+                }
             });
 
             this.tooltip = document.getElementById('star-tooltip');
@@ -832,7 +984,22 @@ class App {
             } else {
                 html += `<li>Consulta la programación del Planetario.</li>`;
             }
-            html += `</ul></div > `;
+            html += `</ul></div>`;
+        }
+
+        // 4. Diario Estelar (Cuerpos registrados)
+        if (STARLOG.length > 0) {
+            html += `<div class="summary-item" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+            <strong>📖 Tu Diario Estelar:</strong><br>
+            <ul style="padding-left: 15px; margin: 5px 0; font-size: 0.85em; color: var(--text-secondary); max-height: 80px; overflow-y: auto;">`;
+
+            // Mostrar solo los ultimos 5 registrados
+            const recentLogs = STARLOG.slice().reverse().slice(0, 5);
+            recentLogs.forEach(log => {
+                html += `<li>${log.name} <em>(${log.date})</em></li>`;
+            });
+
+            html += `</ul></div>`;
         }
 
         summaryEl.innerHTML = html;
@@ -962,7 +1129,7 @@ class App {
             });
         }
 
-        // 4. Draw Horizon Compass
+        // 5. Draw Horizon Compass
         const cardinals = [
             { name: "N", az: 0 }, { name: "E", az: 90 }, { name: "S", az: 180 }, { name: "O", az: 270 }
         ];
@@ -978,6 +1145,34 @@ class App {
                 this.renderer.ctx.fillRect(pos.x - 1, pos.y - 5, 2, 10); // Marker
             }
         });
+
+        // 6. Draw ISS (Fake pseudo-orbit)
+        // La ISS cruza la boveda celeste en aprox 5-8 minutos visible. 
+        // Generamos una alt/az artificial basada en Date.now()
+        const simTime = Date.now() / 1000; // Segundos
+        // Un ciclo orbital completo artificial cada 300 segundos en pantalla
+        const orbitPhase = (simTime % 300) / 300;
+
+        // Simular que va de Oeste a Este cruzando cerca del Zenit
+        const issAz = 270 + (orbitPhase * 180); // 270 (W) -> 0 -> 90 (E)
+        // Altura es parabólica peaking a 80 deg (casi zenit)
+        const issAlt = 80 * Math.sin(orbitPhase * Math.PI);
+
+        if (issAlt > 0) {
+            const screenPos = this.renderer.project(issAlt, issAz);
+            if (screenPos) {
+                const isHovered = this.hoveredObject && this.hoveredObject.name === "ISS (Estación Espacial)";
+                const scale = isHovered ? 1.5 : 1.0;
+
+                this.renderer.drawSatellite(screenPos.x, screenPos.y, "ISS");
+
+                // Allow hovering and clicking log to ISS as well!
+                this.visibleObjects["ISS"] = {
+                    x: screenPos.x, y: screenPos.y,
+                    data: { name: "ISS (Estación Espacial)", dist: "408 km LEO", desc: "La nave espacial más grande jamás construida." }
+                };
+            }
+        }
     }
 
     startLoop() {
@@ -1000,8 +1195,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof AstronomyEngine === 'undefined') throw new Error("AstronomyEngine class not found. Check app.js syntax.");
         if (typeof LOCATION === 'undefined') throw new Error("LOCATION not found. Check data.js loading.");
         const app = new App();
-        // Sincronizar clima real de Envigado
+
+        // Sincronizar clima real de Envigado cada 30 mins
         app.fetchWeatherData();
+        setInterval(() => app.fetchWeatherData(), 1800000);
+
     } catch (e) {
         alert("Startup Error: " + e.message);
     }

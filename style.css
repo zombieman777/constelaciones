@@ -22,6 +22,12 @@ html {
     background-color: var(--bg-color);
     font-family: var(--font-main);
     color: var(--text-primary);
+    transition: filter 0.5s ease;
+}
+
+/* Modo Rojo (Visión Nocturna) */
+body.red-vision {
+    filter: sepia(1) hue-rotate(-50deg) saturate(5) brightness(0.8);
 }
 
 #app {
@@ -85,10 +91,11 @@ body.immersive-mode main {
 }
 
 /* Header */
-header {
+header.ui-layer {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    pointer-events: none;
 }
 
 .location-badge {
@@ -100,6 +107,7 @@ header {
     border-radius: 30px;
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
+    pointer-events: auto;
 }
 
 .location-badge h1 {
@@ -118,6 +126,7 @@ header {
     font-size: 1.5rem;
     font-weight: 200;
     text-shadow: 0 0 10px var(--accent-blue);
+    pointer-events: auto;
 }
 
 /* Main Content */
@@ -139,8 +148,25 @@ main.ui-layer {
     border-radius: 16px;
     padding: 20px;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.5s ease;
     pointer-events: auto;
+}
+
+/* Alerta Cielo Despejado */
+.clear-sky-glow {
+    box-shadow: 0 0 20px 5px rgba(136, 192, 192, 0.6) !important;
+    border-color: var(--accent-blue) !important;
+    animation: pulse-glow 3s infinite alternate;
+}
+
+@keyframes pulse-glow {
+    0% {
+        box-shadow: 0 0 10px 2px rgba(136, 192, 192, 0.4);
+    }
+
+    100% {
+        box-shadow: 0 0 30px 10px rgba(136, 192, 192, 0.8);
+    }
 }
 
 .glass:hover {
@@ -265,4 +291,26 @@ footer.ui-layer {
     background: var(--accent-blue);
     color: black;
     font-weight: bold;
+}
+
+/* Modal de Configuración */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.modal-content {
+    background: var(--bg-color);
+    width: 90%;
+    max-width: 400px;
 }
