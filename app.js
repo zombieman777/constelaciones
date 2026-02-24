@@ -259,13 +259,13 @@ class SkyRenderer {
         return { x: screenX, y: screenY };
     }
 
-    drawStar(x, y, mag, color, name) {
-        const size = Math.max(0.5, 4 - mag); // Brighter stars = larger radius
+    drawStar(x, y, mag, color, name, scale = 1.0) {
+        const size = Math.max(0.5, 4 - mag) * scale; // Brighter stars = larger radius
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = color;
-        this.ctx.shadowBlur = size * 3;
+        this.ctx.shadowBlur = size * (3 * scale);
         this.ctx.shadowColor = color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0; // Reset
@@ -278,13 +278,13 @@ class SkyRenderer {
         }
     }
 
-    drawPlanet(x, y, planet) {
-        const size = 6;
+    drawPlanet(x, y, planet, scale = 1.0) {
+        const size = 6 * scale;
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = planet.color;
-        this.ctx.shadowBlur = 15;
+        this.ctx.shadowBlur = 15 * scale;
         this.ctx.shadowColor = planet.color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
@@ -298,10 +298,42 @@ class SkyRenderer {
         // Ring for Saturn
         if (planet.name === "Saturno") {
             this.ctx.beginPath();
-            this.ctx.ellipse(x, y, 10, 4, Math.PI / 4, 0, 2 * Math.PI);
+            this.ctx.ellipse(x, y, 10 * scale, 4 * scale, Math.PI / 4, 0, 2 * Math.PI);
             this.ctx.strokeStyle = "rgba(200, 200, 150, 0.5)";
             this.ctx.stroke();
         }
+    }
+
+    drawGalaxy(x, y, galaxy, scale = 1.0) {
+        const size = (galaxy.size * 5) * scale; // Base size multiplier
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        this.ctx.rotate(Math.PI / 6); // Tilt slightly
+
+        // Draw elliptical glow
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+        gradient.addColorStop(0, galaxy.color);
+        gradient.addColorStop(0.4, "rgba(100, 150, 255, 0.2)");
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        this.ctx.fillStyle = gradient;
+
+        this.ctx.beginPath();
+        if (galaxy.type === 'spiral') {
+            this.ctx.ellipse(0, 0, size * 2, size * 0.8, 0, 0, Math.PI * 2);
+        } else {
+            this.ctx.ellipse(0, 0, size * 1.5, size * 1.2, 0, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+
+        // Core
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        this.ctx.fill();
+
+        this.ctx.restore();
     }
 
     drawMoon(x, y, moon) {
@@ -449,62 +481,65 @@ class App {
     }
 
     initUI() {
-        document.getElementById('toggle-constellations').addEventListener('click', (e) => {
-            this.renderer.showConstellations = !this.renderer.showConstellations;
-            e.target.classList.toggle('active');
-        });
+        try {
+            document.getElementById('toggle-constellations').addEventListener('click', (e) => {
+                this.renderer.showConstellations = !this.renderer.showConstellations;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('toggle-names').addEventListener('click', (e) => {
-            this.renderer.showNames = !this.renderer.showNames;
-            e.target.classList.toggle('active');
-        });
+            document.getElementById('toggle-names').addEventListener('click', (e) => {
+                this.renderer.showNames = !this.renderer.showNames;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('view-zenith').addEventListener('click', () => {
-            this.flyTo(180, 90);
-        });
+            document.getElementById('view-zenith').addEventListener('click', () => {
+                this.flyTo(180, 90);
+            });
 
-        // Tour Button
-        document.getElementById('start-tour').addEventListener('click', () => {
-            this.renderer.showConstellations = true; // Ensure lines are on
-            this.nextTourStop();
-        });
+            // Tour Button
+            document.getElementById('start-tour').addEventListener('click', () => {
+                this.renderer.showConstellations = true; // Ensure lines are on
+                this.nextTourStop();
+            });
 
-        document.getElementById('load-catalog').addEventListener('click', () => {
-            this.loadExternalCatalog();
-        });
+            // Tour Controls
+            document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
+            document.getElementById('close-tour').addEventListener('click', () => {
+                document.getElementById('tour-panel').style.display = 'none';
+            });
 
-        // Tour Controls
-        document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
-        document.getElementById('close-tour').addEventListener('click', () => {
-            document.getElementById('tour-panel').style.display = 'none';
-        });
+            // Set Date
+            const updateTime = () => {
+                const now = new Date();
+                document.getElementById('current-time').innerText = now.toLocaleTimeString();
+            };
+            setInterval(updateTime, 1000);
+            updateTime();
 
-        // Set Date
-        const updateTime = () => {
-            const now = new Date();
-            document.getElementById('current-time').innerText = now.toLocaleTimeString();
-        };
-        setInterval(updateTime, 1000);
-        updateTime();
+            // Interaction - Click/Hover
+            this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
+            this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
 
-        // Interaction - Click/Hover
-        this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
-        this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
+            // Interaction - Drag
+            this.renderer.canvas.addEventListener('mousedown', (e) => {
+                this.renderer.isDragging = true;
+                this.renderer.lastX = e.clientX;
+                this.renderer.lastY = e.clientY;
+                this.renderer.canvas.style.cursor = 'grabbing';
+            });
 
-        // Interaction - Drag
-        this.renderer.canvas.addEventListener('mousedown', (e) => {
-            this.renderer.isDragging = true;
-            this.renderer.lastX = e.clientX;
-            this.renderer.lastY = e.clientY;
-            this.renderer.canvas.style.cursor = 'grabbing';
-        });
+            window.addEventListener('mouseup', () => {
+                this.renderer.isDragging = false;
+                if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
+            });
 
-        window.addEventListener('mouseup', () => {
-            this.renderer.isDragging = false;
-            if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
-        });
+            this.tooltip = document.getElementById('star-tooltip');
 
-        this.tooltip = document.getElementById('star-tooltip');
+            // Debug success
+            console.log("UI Initialized");
+        } catch (e) {
+            alert("UI Init Error: " + e.message);
+        }
     }
 
     flyTo(az, alt) {
@@ -513,59 +548,7 @@ class App {
         this.isAnimating = true;
     }
 
-    async loadExternalCatalog() {
-        const btn = document.getElementById('load-catalog');
-        btn.innerText = "⏳ Descargando...";
-        btn.disabled = true;
-
-        try {
-            // Using d3-celestial's star catalog (mag 6 limit, ~5000 stars)
-            // It's GeoJSON format: coordinates are [RA, Dec]
-            const response = await fetch('https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/stars.6.json');
-            if (!response.ok) throw new Error("Network response was not ok");
-
-            const data = await response.json();
-            const stars = data.features;
-
-            // Clear procedural background stars
-            this.backgroundStars = [];
-
-            // Parse and add new stars
-            stars.forEach(feature => {
-                const ra = feature.geometry.coordinates[0]; // RA in degrees? No, often hours or degrees. d3-celestial uses degrees [-180, 180] or similar.
-                // Checking d3-celestial format: RA is in degrees [0, 360], Dec [-90, 90] usually.
-                // Let's assume degrees and convert to hours if needed.
-                // Wait, typical GeoJSON for sky is RA (deg), Dec (deg).
-                // My engine expects RA in Hours (0-24).
-
-                let raDeg = feature.geometry.coordinates[0];
-                if (raDeg < 0) raDeg += 360;
-
-                const raHours = raDeg / 15;
-                const dec = feature.geometry.coordinates[1];
-                const mag = feature.properties.mag;
-
-                // Exclude very bright stars we already have manually?
-                // Or just draw them all as background (points) and let manual ones (images/labels) overlay.
-                this.backgroundStars.push({
-                    ra: raHours,
-                    dec: dec,
-                    mag: mag,
-                    color: mag < 4 ? "#ffffff" : "#aaaaff" // Simple color based on brightness
-                });
-            });
-
-            btn.innerText = `✅ ${stars.length} Estrellas`;
-            // Flash success
-            setTimeout(() => { btn.style.display = 'none'; }, 3000);
-
-        } catch (error) {
-            console.error("Failed to load catalog:", error);
-            btn.innerText = "❌ Error";
-            btn.disabled = false;
-            alert("No se pudo descargar el catálogo. Verifica tu conexión.");
-        }
-    }
+    // Removed external catalog loading to keep app self-contained and focused on local data
 
     nextTourStop() {
         const now = new Date();
@@ -730,6 +713,26 @@ class App {
         }
         html += `</div>`;
 
+        // 3. Local Events from Planetario de Medellín
+        if (typeof LOCAL_EVENTS !== 'undefined') {
+            html += `<div class="summary-item" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+                <strong>Eventos del Mes (Planetario Medellín):</strong><br>
+                <ul style="padding-left: 15px; margin: 5px 0; font-size: 0.9em; color: #aaddff;">`;
+
+            // Show next 2 upcoming events
+            const today = now.toISOString().split('T')[0];
+            const upcoming = LOCAL_EVENTS.filter(e => e.date >= today).slice(0, 3);
+
+            if (upcoming.length > 0) {
+                upcoming.forEach(e => {
+                    html += `<li>${e.date.slice(5)}: ${e.desc}</li>`;
+                });
+            } else {
+                html += `<li>Consulta la programación del Planetario.</li>`;
+            }
+            html += `</ul></div>`;
+        }
+
         summaryEl.innerHTML = html;
     }
 
@@ -777,7 +780,23 @@ class App {
             }
         });
 
-        // 0.5 Draw Horizon (Mountains)
+        // 0.5 Draw GALAXIES (New - Deep Sky Objects)
+        if (typeof GALAXIES !== 'undefined') {
+            GALAXIES.forEach(galaxy => {
+                const pos = this.engine.equatorialToHorizontal(galaxy.ra, galaxy.dec, lst);
+                const screenPos = this.renderer.project(pos.alt, pos.az);
+
+                if (screenPos) {
+                    const isHovered = this.hoveredObject && this.hoveredObject.name === galaxy.name;
+                    const scale = isHovered ? 1.5 : 1.0;
+
+                    this.renderer.drawGalaxy(screenPos.x, screenPos.y, galaxy, scale);
+                    this.visibleObjects[galaxy.name] = { x: screenPos.x, y: screenPos.y, data: galaxy };
+                }
+            });
+        }
+
+        // 0.6 Draw Horizon (Mountains)
         this.renderer.drawHorizon();
 
         // 1. Bright Stars (Interactive)
@@ -786,6 +805,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
+                // Determine scale based on hover
+                const isHovered = this.hoveredObject && this.hoveredObject.name === star.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
                 // Twinkle effect
                 const time = Date.now() * 0.002;
                 // Unique phase for each star based on its RA
@@ -793,7 +816,7 @@ class App {
                 const twinkle = 0.7 + 0.3 * Math.sin(time + randomPhase);
 
                 this.renderer.ctx.globalAlpha = twinkle;
-                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name);
+                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name, scale);
                 this.renderer.ctx.globalAlpha = 1.0; // Reset
 
                 starMap[star.name] = screenPos;
@@ -809,7 +832,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
-                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet);
+                const isHovered = this.hoveredObject && this.hoveredObject.name === planet.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
+                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet, scale);
                 this.visibleObjects[planet.name] = { x: screenPos.x, y: screenPos.y, data: planet };
             }
         });
