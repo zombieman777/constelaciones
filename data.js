@@ -1,7 +1,7 @@
 const LOCATION = {
     lat: 6.2686,
     long: -75.5658,
-    name: "Valle de Aburrá, Medellín"
+    name: "Envigado, Antioquia"
 };
 
 // Eventos Astronómicos Específicos para Febrero 2026 (Fuente: Planetario de Medellín)

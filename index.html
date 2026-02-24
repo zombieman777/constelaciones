@@ -19,7 +19,7 @@
             <div class="location-badge">
                 <span class="icon">📍</span>
                 <div>
-                    <h1>Valle de Aburrá, Medellín</h1>
+                    <h1>Envigado, Antioquia</h1>
                     <p id="lat-long">6.2686° N, 75.5658° W</p>
                 </div>
             </div>
@@ -30,9 +30,15 @@
 
         <main class="ui-layer">
             <div class="info-panel glass">
-                <h2>Cielo de Medellín</h2>
-                <div id="agent-message" class="typewriter">
+                <h2>Agente Astronómico (IA)</h2>
+                <div id="agent-message" class="typewriter"
+                    style="line-height: 1.4; font-size: 0.95rem; margin-bottom: 12px; max-height: 150px; overflow-y: auto;">
                     Sincronizando con Planetario de Medellín...
+                </div>
+                <div class="ia-chat">
+                    <input type="text" id="ia-input" class="ia-input"
+                        placeholder="Pregúntale a Gemini sobre el cielo..." autocomplete="off">
+                    <button id="ia-send" class="ia-btn glass-btn">Enviar</button>
                 </div>
             </div>
 

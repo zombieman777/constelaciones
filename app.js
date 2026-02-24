@@ -1,3 +1,5 @@
+const GEMINI_API_KEY = "TU_API_KEY_AQUI"; // Reemplaza esto con tu API Key real de Google Gemini
+
 // Global Error Handler for debugging
 window.onerror = function (msg, url, line, col, error) {
     alert(`Error: ${msg}\nLine: ${line}\nCol: ${col}\n${error ? error.stack : ''}`);
@@ -480,6 +482,78 @@ class App {
         setInterval(() => this.updateNightSummary(), 60000);
     }
 
+    async fetchWeatherData() {
+        try {
+            const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=6.2686&longitude=-75.5658&current=cloud_cover');
+            if (!response.ok) throw new Error("Error en red");
+            const data = await response.json();
+            const cloudCover = data.current.cloud_cover;
+            const msgEl = document.getElementById('agent-message');
+
+            if (cloudCover < 30) {
+                msgEl.innerText = `Cielo despejado en Envigado (${cloudCover}% nubes). Condiciones ideales para observación.`;
+                msgEl.style.color = 'var(--accent-blue)';
+            } else if (cloudCover < 70) {
+                msgEl.innerText = `Parcialmente nublado (${cloudCover}% nubes). Podrás ver las estrellas más brillantes.`;
+            } else {
+                msgEl.innerText = `Cielo muy nublado (${cloudCover}% nubes). La visibilidad es reducida hoy.`;
+                msgEl.style.color = 'var(--accent-gold)';
+            }
+            msgEl.classList.remove('typewriter');
+            msgEl.style.borderRight = 'none';
+        } catch (e) {
+            document.getElementById('agent-message').innerText = "Sistema meteorológico fuera de línea. Simulando condiciones promedio.";
+        }
+    }
+
+    async askGemini(question) {
+        const inputEl = document.getElementById('ia-input');
+        const msgEl = document.getElementById('agent-message');
+        const btnEl = document.getElementById('ia-send');
+
+        if (!question.trim()) return;
+
+        inputEl.value = '';
+        inputEl.disabled = true;
+        btnEl.disabled = true;
+
+        msgEl.classList.remove('typewriter');
+        msgEl.style.borderRight = 'none';
+        msgEl.innerText = "Consultando a la IA estelar...";
+        msgEl.style.color = 'var(--text-primary)';
+
+        try {
+            if (GEMINI_API_KEY === "TU_API_KEY_AQUI" || !GEMINI_API_KEY) {
+                msgEl.innerHTML = `<em>Falta la API Key de Gemini en app.js.</em><br><br><strong>Simulación:</strong> Teniendo en cuenta la latitud de Envigado, ${question.length > 5 ? 'Orión' : 'Sirio'} se encuentra en una posición excelente esta noche.`;
+                inputEl.disabled = false;
+                btnEl.disabled = false;
+                return;
+            }
+
+            const prompt = `Eres un astrónomo experto e IA integrada en 'Stargazer Envigado'. El usuario está observando el cielo nocturno en Envigado, Colombia (6.2686° N, 75.5658° W) a las ${new Date().toLocaleTimeString()}. Responde la siguiente pregunta de forma amistosa, muy concisa (máximo 2 párrafos cortos) y adaptando tu conocimiento a las coordenadas actuales. Pregunta: ${question}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+
+            const answer = data.candidates[0].content.parts[0].text;
+            msgEl.innerHTML = answer.replace(/\n/g, '<br>');
+        } catch (e) {
+            msgEl.innerText = "Hubo una interferencia al contactar el espacio profundo. Intenta nuevamente.";
+            console.error(e);
+        }
+
+        inputEl.disabled = false;
+        btnEl.disabled = false;
+    }
+
     initUI() {
         try {
             document.getElementById('toggle-constellations').addEventListener('click', (e) => {
@@ -493,8 +567,36 @@ class App {
             });
 
             document.getElementById('view-zenith').addEventListener('click', () => {
-                this.flyTo(180, 90);
+                document.body.classList.toggle('immersive-mode');
+                const isImmersive = document.body.classList.contains('immersive-mode');
+
+                if (isImmersive) {
+                    document.getElementById('view-zenith').innerHTML = "🌌 Salir Modo Acostado";
+                    this.flyTo(180, 90);
+                    // Optional: Request fullscreen
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(() => { });
+                    }
+                } else {
+                    document.getElementById('view-zenith').innerHTML = "🛌 Vista Acostado";
+                    this.flyTo(180, 45); // Return to default altitude
+                    if (document.exitFullscreen && document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => { });
+                    }
+                }
             });
+
+            // IA Events
+            const iaInput = document.getElementById('ia-input');
+            const iaSend = document.getElementById('ia-send');
+            if (iaSend && iaInput) {
+                iaSend.addEventListener('click', () => {
+                    this.askGemini(iaInput.value);
+                });
+                iaInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.askGemini(e.target.value);
+                });
+            }
 
             // Tour Button
             document.getElementById('start-tour').addEventListener('click', () => {
@@ -650,7 +752,7 @@ class App {
         this.tooltip.style.top = (y + 15) + 'px';
 
         document.getElementById('tooltip-name').innerText = obj.name;
-        document.getElementById('tooltip-dist').innerText = obj.dist ? `Distancia: ${obj.dist}` : '';
+        document.getElementById('tooltip-dist').innerText = obj.dist ? `Distancia: ${obj.dist} ` : '';
         document.getElementById('tooltip-desc').innerText = obj.desc || "Sin datos adicionales.";
     }
 
@@ -672,7 +774,7 @@ class App {
             const randomPlace = OBSERVABLE_PLACES[Math.floor(Math.random() * OBSERVABLE_PLACES.length)];
 
             factEl.innerText = randomFact;
-            placeEl.innerHTML = `<strong>${randomPlace.name}</strong><br>${randomPlace.desc}`;
+            placeEl.innerHTML = `< strong > ${randomPlace.name}</strong > <br>${randomPlace.desc}`;
 
             // Fade in
             factEl.classList.remove('fade-out');
@@ -691,11 +793,11 @@ class App {
         const moonVis = moonHor.alt > 0;
 
         let html = `<div class="summary-item">
-            <strong>Luna:</strong> ${moon.phaseName} <br>
-            <span class="${moonVis ? 'visible' : 'not-visible'}">
-                ${moonVis ? 'Visible ahora' : 'Bajo el horizonte'}
-            </span>
-        </div>`;
+                    <strong>Luna:</strong> ${moon.phaseName} <br>
+                        <span class="${moonVis ? 'visible' : 'not-visible'}">
+                            ${moonVis ? 'Visible ahora' : 'Bajo el horizonte'}
+                        </span>
+                </div>`;
 
         // 2. Check Planets
         const visiblePlanets = [];
@@ -730,7 +832,7 @@ class App {
             } else {
                 html += `<li>Consulta la programación del Planetario.</li>`;
             }
-            html += `</ul></div>`;
+            html += `</ul></div > `;
         }
 
         summaryEl.innerHTML = html;
@@ -893,12 +995,14 @@ class App {
 }
 
 // Start App
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
     try {
         if (typeof AstronomyEngine === 'undefined') throw new Error("AstronomyEngine class not found. Check app.js syntax.");
         if (typeof LOCATION === 'undefined') throw new Error("LOCATION not found. Check data.js loading.");
-        new App();
+        const app = new App();
+        // Sincronizar clima real de Envigado
+        app.fetchWeatherData();
     } catch (e) {
         alert("Startup Error: " + e.message);
     }
-};
+});

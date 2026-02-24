@@ -1,11 +1,14 @@
 :root {
-    --bg-color: #050510;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0ff;
-    --accent-gold: #ffd700;
-    --accent-blue: #00ffff;
-    --glass-bg: rgba(20, 20, 40, 0.6);
-    --glass-border: rgba(100, 100, 255, 0.2);
+    --bg-color: #030308;
+    --text-primary: #f2e9dc;
+    /* Warm white */
+    --text-secondary: #e6c8a6;
+    /* Amber/gold */
+    --accent-gold: #e8b975;
+    --accent-blue: #88c0c0;
+    /* Softer cyan */
+    --glass-bg: rgba(15, 15, 25, 0.7);
+    --glass-border: rgba(136, 192, 192, 0.2);
     --font-main: 'Outfit', sans-serif;
 }
 
@@ -33,7 +36,7 @@ html {
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at bottom, #0b1026 0%, #000000 100%);
+    background: radial-gradient(circle at center, #070a18 0%, #000000 100%);
     z-index: 0;
 }
 
@@ -43,6 +46,42 @@ html {
     pointer-events: none;
     /* Let clicks pass through to canvas where valid */
     padding: 20px;
+    transition: opacity 0.8s ease-in-out;
+}
+
+body.immersive-mode header,
+body.immersive-mode main {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.ia-chat {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ia-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.ia-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 8px var(--accent-blue);
+}
+
+.ia-btn {
+    padding: 8px 15px;
+    font-size: 0.9rem;
 }
 
 /* Header */
@@ -82,15 +121,15 @@ header {
 }
 
 /* Main Content */
-main {
+main.ui-layer {
     position: absolute;
-    top: 100px;
+    top: 70px;
     left: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     width: 300px;
-    pointer-events: auto;
+    pointer-events: none;
 }
 
 .glass {
@@ -101,6 +140,7 @@ main {
     padding: 20px;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     transition: transform 0.3s ease;
+    pointer-events: auto;
 }
 
 .glass:hover {
@@ -118,10 +158,11 @@ main {
 
 .typewriter {
     font-family: monospace;
+    color: var(--text-secondary);
     border-right: 2px solid var(--accent-blue);
     white-space: pre-wrap;
     overflow: hidden;
-    animation: blink-caret 0.75s step-end infinite;
+    animation: blink-caret 1s step-end infinite;
 }
 
 @keyframes blink-caret {
@@ -155,6 +196,7 @@ main {
     /* Opposite side of logo/info */
     max-width: 250px;
     text-align: right;
+    pointer-events: auto;
 }
 
 .summary-panel h2 {
@@ -184,21 +226,23 @@ main {
 }
 
 /* Footer Controls */
-footer {
+footer.ui-layer {
     position: absolute;
     bottom: 20px;
     width: 100%;
     display: flex;
     justify-content: center;
-    pointer-events: auto;
+    pointer-events: none;
 }
 
 .controls {
     display: flex;
     gap: 15px;
+    pointer-events: auto;
 }
 
-.glass-btn {
+.glass-btn,
+.control-btn {
     background: var(--glass-bg);
     color: white;
     border: 1px solid var(--glass-border);
@@ -210,12 +254,14 @@ footer {
     backdrop-filter: blur(5px);
 }
 
-.glass-btn:hover {
+.glass-btn:hover,
+.control-btn:hover {
     background: rgba(40, 40, 100, 0.8);
-    box-shadow: 0 0 15px var(--accent-blue);
+    box-shadow: 0 0 10px var(--accent-blue);
 }
 
-.glass-btn.active {
+.glass-btn.active,
+.control-btn.active {
     background: var(--accent-blue);
     color: black;
     font-weight: bold;
