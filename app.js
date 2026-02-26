@@ -761,7 +761,7 @@ class App {
             this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
             this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
 
-            // Interaction - Drag
+            // Interaction - Drag (Mouse)
             this.renderer.canvas.addEventListener('mousedown', (e) => {
                 this.renderer.isDragging = true;
                 this.renderer.lastX = e.clientX;
@@ -774,16 +774,47 @@ class App {
                 if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
             });
 
-            // Interaction - Mobile Pinch to Zoom
+            // Interaction - Touch (Drag & Zoom)
+            this.renderer.canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    this.renderer.isDragging = true;
+                    this.renderer.lastX = e.touches[0].clientX;
+                    this.renderer.lastY = e.touches[0].clientY;
+                }
+            }, { passive: false });
+
             this.renderer.canvas.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2) {
                     this.renderer.handleTouch(e);
+                } else if (e.touches.length === 1 && this.renderer.isDragging) {
+                    e.preventDefault(); // Evitar scroll
+                    const dx = e.touches[0].clientX - this.renderer.lastX;
+                    const dy = e.touches[0].clientY - this.renderer.lastY;
+
+                    this.isAnimating = false;
+                    this.renderer.azCenter -= dx * 0.2;
+                    this.renderer.altCenter += dy * 0.2;
+                    this.renderer.altCenter = Math.max(0, Math.min(90, this.renderer.altCenter));
+
+                    if (this.renderer.azCenter < 0) this.renderer.azCenter += 360;
+                    if (this.renderer.azCenter >= 360) this.renderer.azCenter -= 360;
+
+                    this.renderer.lastX = e.touches[0].clientX;
+                    this.renderer.lastY = e.touches[0].clientY;
+
+                    // Actualizar hover en móvil
+                    const rect = this.renderer.canvas.getBoundingClientRect();
+                    const mockEvent = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+                    this.handleInput(mockEvent);
                 }
             }, { passive: false });
 
             this.renderer.canvas.addEventListener('touchend', (e) => {
                 if (e.touches.length < 2) {
                     this.renderer.lastPinchDistance = null;
+                }
+                if (e.touches.length === 0) {
+                    this.renderer.isDragging = false;
                 }
             });
 

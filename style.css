@@ -217,20 +217,12 @@ main.ui-layer {
 }
 
 .summary-panel {
-    position: fixed;
     top: 20px;
     right: 20px;
     /* Opposite side of logo/info */
     max-width: 250px;
     text-align: right;
     pointer-events: auto;
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 20px;
-    color: var(--text-primary);
-    z-index: 100;
 }
 
 .summary-panel h2 {
@@ -323,94 +315,31 @@ footer.ui-layer {
     max-width: 400px;
 }
 
-/* --- Media Queries --- */
-@media (max-width: 1024px) {
-    main.ui-layer {
-        width: 250px;
-    }
-}
-
+/* --- Responsive Media Queries --- */
 @media (max-width: 768px) {
     header.ui-layer {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-        padding-top: 10px;
+        padding: 10px;
+        flex-wrap: wrap;
+        /* Evita que el badge y el reloj se traslapen feo */
     }
 
     .location-badge {
-        padding: 5px 15px;
+        padding: 5px 10px;
     }
 
     .location-badge h1 {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .time-badge {
         font-size: 1.2rem;
-        align-self: flex-end;
-        position: absolute;
-        top: 20px;
-        right: 20px;
     }
 
     main.ui-layer {
-        top: 90px;
-        width: 85%;
-        max-width: 400px;
-        left: 50%;
-        transform: translateX(-50%);
-        pointer-events: none;
-    }
-
-    .summary-panel {
-        position: static;
-        width: 100%;
-        max-width: 100%;
-        text-align: center;
-        margin-top: 15px;
-        padding: 15px;
-        box-sizing: border-box;
-    }
-
-    footer.ui-layer {
-        bottom: 10px;
-    }
-
-    .controls {
-        flex-wrap: wrap;
-        justify-content: center;
-        width: 100%;
-        padding: 0 10px;
-    }
-
-    .glass-btn,
-    .control-btn {
-        padding: 8px 12px;
-        font-size: 0.85rem;
-        flex: 1 1 auto;
-        text-align: center;
-        margin-bottom: 5px;
-    }
-
-    #tour-panel {
-        position: fixed !important;
-        width: 90%;
-        max-width: 320px !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .time-badge {
-        font-size: 1rem;
-    }
-
-    main.ui-layer {
-        top: 80px;
-        width: 95%;
+        top: 60px;
+        left: 10px;
+        width: 250px;
+        gap: 10px;
     }
 
     .glass {
@@ -418,11 +347,33 @@ footer.ui-layer {
     }
 
     .controls {
-        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100vw;
+        padding: 0 10px;
     }
 
     .glass-btn,
     .control-btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    main.ui-layer {
+        /* Hacemos los paneles más compactos para liberar espacio de pantalla */
+        width: 220px;
+        transform: scale(0.9);
+        transform-origin: top left;
+    }
+
+    .controls {
+        gap: 8px;
+    }
+
+    .control-btn,
+    .glass-btn {
         padding: 6px 10px;
         font-size: 0.75rem;
     }
