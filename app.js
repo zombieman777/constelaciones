@@ -1,3 +1,6 @@
+let GEMINI_API_KEY = localStorage.getItem('GEMINI_API_KEY') || ""; // Recupera la clave guardada o queda vacía
+let STARLOG = JSON.parse(localStorage.getItem('STARLOG') || "[]"); // Recuperar descubrimientos
+
 // Global Error Handler for debugging
 window.onerror = function (msg, url, line, col, error) {
     alert(`Error: ${msg}\nLine: ${line}\nCol: ${col}\n${error ? error.stack : ''}`);
@@ -215,6 +218,57 @@ class SkyRenderer {
         this.isDragging = false;
         this.lastX = 0;
         this.lastY = 0;
+
+        // Propiedades de zoom para móvil
+        this.lastPinchDistance = null;
+
+        // Añadir listener para rueda (desempeño pasivo false para preventDefault)
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+    }
+
+    handleWheel(e) {
+        e.preventDefault(); // Evita scroll de la página
+
+        // Determinar dirección: e.deltaY > 0 es hacia abajo (alejar), < 0 es hacia arriba (acercar)
+        const zoomStep = 0.1;
+        if (e.deltaY < 0) {
+            this.zoomLevel += zoomStep;
+        } else {
+            this.zoomLevel -= zoomStep;
+        }
+
+        // Limitar zoomLevel entre 0.5 y 5.0
+        this.zoomLevel = Math.max(0.5, Math.min(5.0, this.zoomLevel));
+    }
+
+    handleTouch(e) {
+        if (e.touches.length === 2) {
+            // Prevenir scroll
+            e.preventDefault();
+
+            // Calcular distancia entre dos dedos
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const dist = Math.sqrt(
+                Math.pow(touch2.clientX - touch1.clientX, 2) +
+                Math.pow(touch2.clientY - touch1.clientY, 2)
+            );
+
+            if (this.lastPinchDistance !== null) {
+                // Calcular sensibilidad
+                const deltaDist = dist - this.lastPinchDistance;
+                const zoomSensibility = 0.005;
+
+                this.zoomLevel += deltaDist * zoomSensibility;
+
+                // Limitar zoomLevel entre 0.5 y 5.0
+                this.zoomLevel = Math.max(0.5, Math.min(5.0, this.zoomLevel));
+            }
+
+            this.lastPinchDistance = dist;
+        } else {
+            this.lastPinchDistance = null; // Reiniciar si no hay dos dedos
+        }
     }
 
     resize() {
@@ -259,13 +313,13 @@ class SkyRenderer {
         return { x: screenX, y: screenY };
     }
 
-    drawStar(x, y, mag, color, name) {
-        const size = Math.max(0.5, 4 - mag); // Brighter stars = larger radius
+    drawStar(x, y, mag, color, name, scale = 1.0) {
+        const size = Math.max(0.5, 4 - mag) * scale; // Brighter stars = larger radius
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = color;
-        this.ctx.shadowBlur = size * 3;
+        this.ctx.shadowBlur = size * (3 * scale);
         this.ctx.shadowColor = color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0; // Reset
@@ -278,13 +332,13 @@ class SkyRenderer {
         }
     }
 
-    drawPlanet(x, y, planet) {
-        const size = 6;
+    drawPlanet(x, y, planet, scale = 1.0) {
+        const size = 6 * scale;
 
         this.ctx.beginPath();
         this.ctx.arc(x, y, size, 0, Math.PI * 2);
         this.ctx.fillStyle = planet.color;
-        this.ctx.shadowBlur = 15;
+        this.ctx.shadowBlur = 15 * scale;
         this.ctx.shadowColor = planet.color;
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
@@ -298,10 +352,42 @@ class SkyRenderer {
         // Ring for Saturn
         if (planet.name === "Saturno") {
             this.ctx.beginPath();
-            this.ctx.ellipse(x, y, 10, 4, Math.PI / 4, 0, 2 * Math.PI);
+            this.ctx.ellipse(x, y, 10 * scale, 4 * scale, Math.PI / 4, 0, 2 * Math.PI);
             this.ctx.strokeStyle = "rgba(200, 200, 150, 0.5)";
             this.ctx.stroke();
         }
+    }
+
+    drawGalaxy(x, y, galaxy, scale = 1.0) {
+        const size = (galaxy.size * 5) * scale; // Base size multiplier
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        this.ctx.rotate(Math.PI / 6); // Tilt slightly
+
+        // Draw elliptical glow
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+        gradient.addColorStop(0, galaxy.color);
+        gradient.addColorStop(0.4, "rgba(100, 150, 255, 0.2)");
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        this.ctx.fillStyle = gradient;
+
+        this.ctx.beginPath();
+        if (galaxy.type === 'spiral') {
+            this.ctx.ellipse(0, 0, size * 2, size * 0.8, 0, 0, Math.PI * 2);
+        } else {
+            this.ctx.ellipse(0, 0, size * 1.5, size * 1.2, 0, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+
+        // Core
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        this.ctx.fill();
+
+        this.ctx.restore();
     }
 
     drawMoon(x, y, moon) {
@@ -345,6 +431,30 @@ class SkyRenderer {
         this.ctx.fillStyle = "#ffffff";
         this.ctx.font = "bold 12px sans-serif";
         this.ctx.fillText(`Luna`, x + 20, y + 5);
+    }
+
+    drawSatellite(x, y, name) {
+        // Estela simple
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - 10, y + 5);
+        this.ctx.lineTo(x, y);
+        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        this.ctx.lineWidth = 1;
+        this.ctx.stroke();
+
+        // Punto principal muy brillante
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = "#00ffff";
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+
+        // Etiqueta
+        this.ctx.fillStyle = "rgba(100, 255, 255, 0.8)";
+        this.ctx.font = "10px monospace";
+        this.ctx.fillText(name, x + 5, y - 5);
     }
 
     drawHorizon() {
@@ -448,63 +558,273 @@ class App {
         setInterval(() => this.updateNightSummary(), 60000);
     }
 
+    async fetchWeatherData() {
+        try {
+            const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=6.2686&longitude=-75.5658&current=cloud_cover');
+            if (!response.ok) throw new Error("Error en red");
+            const data = await response.json();
+            const cloudCover = data.current.cloud_cover;
+            const msgEl = document.getElementById('agent-message');
+
+            // Activar glow si el cielo es perfecto (< 20%)
+            const panels = document.querySelectorAll('.glass');
+            if (cloudCover < 20) {
+                msgEl.innerText = `¡Alerta Estelar! Cielo ultra-despejado en Envigado (${cloudCover}% nubes). Saca tu telescopio ahora mismo.`;
+                msgEl.style.color = '#00ffff';
+                msgEl.style.fontWeight = 'bold';
+                panels.forEach(p => p.classList.add('clear-sky-glow'));
+            } else if (cloudCover < 50) {
+                msgEl.innerText = `Cielo parcialmente despejado (${cloudCover}% nubes). Buenas condiciones para observar cuerpos brillantes.`;
+                msgEl.style.color = 'var(--accent-blue)';
+                panels.forEach(p => p.classList.remove('clear-sky-glow'));
+            } else {
+                msgEl.innerText = `Cielo muy nublado (${cloudCover}% nubes). La visibilidad es reducida hoy.`;
+                msgEl.style.color = 'var(--accent-gold)';
+                panels.forEach(p => p.classList.remove('clear-sky-glow'));
+            }
+            msgEl.classList.remove('typewriter');
+            msgEl.style.borderRight = 'none';
+        } catch (e) {
+            document.getElementById('agent-message').innerText = "Sistema meteorológico fuera de línea. Simulando condiciones promedio.";
+        }
+    }
+
+    async askGemini(question) {
+        const inputEl = document.getElementById('ia-input');
+        const msgEl = document.getElementById('agent-message');
+        const btnEl = document.getElementById('ia-send');
+
+        if (!question.trim()) return;
+
+        inputEl.value = '';
+        inputEl.disabled = true;
+        btnEl.disabled = true;
+
+        msgEl.classList.remove('typewriter');
+        msgEl.style.borderRight = 'none';
+        msgEl.innerText = "Consultando a la IA estelar...";
+        msgEl.style.color = 'var(--text-primary)';
+
+        try {
+            if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === "") {
+                msgEl.innerHTML = `<em>Falta la API Key de Gemini.</em><br><br>Por favor, haz clic en el ícono del engranaje ⚙️ (arriba a la derecha) para configurar tu clave API de Google Gemini y activar a la IA.`;
+                inputEl.disabled = false;
+                btnEl.disabled = false;
+                return;
+            }
+
+            const prompt = `Eres un astrónomo experto e IA integrada en 'Stargazer Envigado'. El usuario está observando el cielo nocturno en Envigado, Colombia (6.2686° N, 75.5658° W) a las ${new Date().toLocaleTimeString()}. Responde la siguiente pregunta de forma amistosa, muy concisa (máximo 2 párrafos cortos) y adaptando tu conocimiento a las coordenadas actuales. Pregunta: ${question}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+
+            const answer = data.candidates[0].content.parts[0].text;
+            msgEl.innerHTML = answer.replace(/\n/g, '<br>');
+        } catch (e) {
+            msgEl.innerText = "Hubo una interferencia al contactar el espacio profundo. Intenta nuevamente.";
+            console.error(e);
+        }
+
+        inputEl.disabled = false;
+        btnEl.disabled = false;
+    }
+
     initUI() {
-        document.getElementById('toggle-constellations').addEventListener('click', (e) => {
-            this.renderer.showConstellations = !this.renderer.showConstellations;
-            e.target.classList.toggle('active');
-        });
+        try {
+            document.getElementById('toggle-constellations').addEventListener('click', (e) => {
+                this.renderer.showConstellations = !this.renderer.showConstellations;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('toggle-names').addEventListener('click', (e) => {
-            this.renderer.showNames = !this.renderer.showNames;
-            e.target.classList.toggle('active');
-        });
+            document.getElementById('toggle-names').addEventListener('click', (e) => {
+                this.renderer.showNames = !this.renderer.showNames;
+                e.target.classList.toggle('active');
+            });
 
-        document.getElementById('view-zenith').addEventListener('click', () => {
-            this.flyTo(180, 90);
-        });
+            document.getElementById('view-zenith').addEventListener('click', () => {
+                document.body.classList.toggle('immersive-mode');
+                const isImmersive = document.body.classList.contains('immersive-mode');
 
-        // Tour Button
-        document.getElementById('start-tour').addEventListener('click', () => {
-            this.renderer.showConstellations = true; // Ensure lines are on
-            this.nextTourStop();
-        });
+                if (isImmersive) {
+                    document.getElementById('view-zenith').innerHTML = "🌌 Salir Modo Acostado";
+                    this.flyTo(180, 90);
+                    // Optional: Request fullscreen
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(() => { });
+                    }
+                } else {
+                    document.getElementById('view-zenith').innerHTML = "🛌 Vista Acostado";
+                    this.flyTo(180, 45); // Return to default altitude
+                    if (document.exitFullscreen && document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => { });
+                    }
+                }
+            });
 
-        document.getElementById('load-catalog').addEventListener('click', () => {
-            this.loadExternalCatalog();
-        });
+            // Vision Nocturna (Modo Rojo)
+            document.getElementById('toggle-red-vision').addEventListener('click', (e) => {
+                document.body.classList.toggle('red-vision');
+                e.target.classList.toggle('active');
+            });
 
-        // Tour Controls
-        document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
-        document.getElementById('close-tour').addEventListener('click', () => {
-            document.getElementById('tour-panel').style.display = 'none';
-        });
+            // Registro de Diario Estelar
+            document.getElementById('btn-log-sighting').addEventListener('click', () => {
+                const name = document.getElementById('tooltip-name').innerText;
+                const today = new Date().toLocaleDateString();
 
-        // Set Date
-        const updateTime = () => {
-            const now = new Date();
-            document.getElementById('current-time').innerText = now.toLocaleTimeString();
-        };
-        setInterval(updateTime, 1000);
-        updateTime();
+                // Evitar duplicados el mismo día
+                const exists = STARLOG.find(l => l.name === name && l.date === today);
+                if (!exists) {
+                    STARLOG.push({ name, date: today });
+                    localStorage.setItem('STARLOG', JSON.stringify(STARLOG));
 
-        // Interaction - Click/Hover
-        this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
-        this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
+                    const btn = document.getElementById('btn-log-sighting');
+                    btn.innerText = "¡Registrado!";
+                    setTimeout(() => btn.innerText = "✅ Registrar", 2000);
+                    this.updateNightSummary(); // Actulizar panel de resumen
+                }
+            });
 
-        // Interaction - Drag
-        this.renderer.canvas.addEventListener('mousedown', (e) => {
-            this.renderer.isDragging = true;
-            this.renderer.lastX = e.clientX;
-            this.renderer.lastY = e.clientY;
-            this.renderer.canvas.style.cursor = 'grabbing';
-        });
+            // IA Events
+            const iaInput = document.getElementById('ia-input');
+            const iaSend = document.getElementById('ia-send');
+            if (iaSend && iaInput) {
+                iaSend.addEventListener('click', () => {
+                    this.askGemini(iaInput.value);
+                });
+                iaInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.askGemini(e.target.value);
+                });
+            }
 
-        window.addEventListener('mouseup', () => {
-            this.renderer.isDragging = false;
-            if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
-        });
+            // Configuración Events (Modal)
+            const settingsBtn = document.getElementById('settings-btn');
+            const modal = document.getElementById('settings-modal');
+            const saveBtn = document.getElementById('save-settings-btn');
+            const closeBtn = document.getElementById('close-settings-btn');
+            const apiInput = document.getElementById('api-key-input');
 
-        this.tooltip = document.getElementById('star-tooltip');
+            if (settingsBtn && modal) {
+                settingsBtn.addEventListener('click', () => {
+                    apiInput.value = GEMINI_API_KEY; // Pre-fill with current key
+                    modal.style.display = 'flex';
+                });
+
+                closeBtn.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                });
+
+                saveBtn.addEventListener('click', () => {
+                    const newKey = apiInput.value.trim();
+                    GEMINI_API_KEY = newKey;
+                    localStorage.setItem('GEMINI_API_KEY', newKey);
+                    modal.style.display = 'none';
+                    document.getElementById('agent-message').innerText = "✅ Configuración guardada. Inteligencia Artificial lista para operar.";
+                    document.getElementById('agent-message').style.color = "var(--accent-gold)";
+                });
+
+                // Cierra si haces clic fuera del recuadro de contenido
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) modal.style.display = 'none';
+                });
+            }
+
+            // Tour Button
+            document.getElementById('start-tour').addEventListener('click', () => {
+                this.renderer.showConstellations = true; // Ensure lines are on
+                this.nextTourStop();
+            });
+
+            // Tour Controls
+            document.getElementById('next-tour').addEventListener('click', () => this.nextTourStop());
+            document.getElementById('close-tour').addEventListener('click', () => {
+                document.getElementById('tour-panel').style.display = 'none';
+            });
+
+            // Set Date
+            const updateTime = () => {
+                const now = new Date();
+                document.getElementById('current-time').innerText = now.toLocaleTimeString();
+            };
+            setInterval(updateTime, 1000);
+            updateTime();
+
+            // Interaction - Click/Hover
+            this.renderer.canvas.addEventListener('mousemove', (e) => this.handleInput(e));
+            this.renderer.canvas.addEventListener('click', (e) => this.handleClick(e));
+
+            // Interaction - Drag (Mouse)
+            this.renderer.canvas.addEventListener('mousedown', (e) => {
+                this.renderer.isDragging = true;
+                this.renderer.lastX = e.clientX;
+                this.renderer.lastY = e.clientY;
+                this.renderer.canvas.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mouseup', () => {
+                this.renderer.isDragging = false;
+                if (!this.hoveredObject) this.renderer.canvas.style.cursor = 'default';
+            });
+
+            // Interaction - Touch (Drag & Zoom)
+            this.renderer.canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    this.renderer.isDragging = true;
+                    this.renderer.lastX = e.touches[0].clientX;
+                    this.renderer.lastY = e.touches[0].clientY;
+                }
+            }, { passive: false });
+
+            this.renderer.canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    this.renderer.handleTouch(e);
+                } else if (e.touches.length === 1 && this.renderer.isDragging) {
+                    e.preventDefault(); // Evitar scroll
+                    const dx = e.touches[0].clientX - this.renderer.lastX;
+                    const dy = e.touches[0].clientY - this.renderer.lastY;
+
+                    this.isAnimating = false;
+                    this.renderer.azCenter -= dx * 0.2;
+                    this.renderer.altCenter += dy * 0.2;
+                    this.renderer.altCenter = Math.max(0, Math.min(90, this.renderer.altCenter));
+
+                    if (this.renderer.azCenter < 0) this.renderer.azCenter += 360;
+                    if (this.renderer.azCenter >= 360) this.renderer.azCenter -= 360;
+
+                    this.renderer.lastX = e.touches[0].clientX;
+                    this.renderer.lastY = e.touches[0].clientY;
+
+                    // Actualizar hover en móvil
+                    const rect = this.renderer.canvas.getBoundingClientRect();
+                    const mockEvent = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+                    this.handleInput(mockEvent);
+                }
+            }, { passive: false });
+
+            this.renderer.canvas.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    this.renderer.lastPinchDistance = null;
+                }
+                if (e.touches.length === 0) {
+                    this.renderer.isDragging = false;
+                }
+            });
+
+            this.tooltip = document.getElementById('star-tooltip');
+
+            // Debug success
+            console.log("UI Initialized");
+        } catch (e) {
+            alert("UI Init Error: " + e.message);
+        }
     }
 
     flyTo(az, alt) {
@@ -513,59 +833,7 @@ class App {
         this.isAnimating = true;
     }
 
-    async loadExternalCatalog() {
-        const btn = document.getElementById('load-catalog');
-        btn.innerText = "⏳ Descargando...";
-        btn.disabled = true;
-
-        try {
-            // Using d3-celestial's star catalog (mag 6 limit, ~5000 stars)
-            // It's GeoJSON format: coordinates are [RA, Dec]
-            const response = await fetch('https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/stars.6.json');
-            if (!response.ok) throw new Error("Network response was not ok");
-
-            const data = await response.json();
-            const stars = data.features;
-
-            // Clear procedural background stars
-            this.backgroundStars = [];
-
-            // Parse and add new stars
-            stars.forEach(feature => {
-                const ra = feature.geometry.coordinates[0]; // RA in degrees? No, often hours or degrees. d3-celestial uses degrees [-180, 180] or similar.
-                // Checking d3-celestial format: RA is in degrees [0, 360], Dec [-90, 90] usually.
-                // Let's assume degrees and convert to hours if needed.
-                // Wait, typical GeoJSON for sky is RA (deg), Dec (deg).
-                // My engine expects RA in Hours (0-24).
-
-                let raDeg = feature.geometry.coordinates[0];
-                if (raDeg < 0) raDeg += 360;
-
-                const raHours = raDeg / 15;
-                const dec = feature.geometry.coordinates[1];
-                const mag = feature.properties.mag;
-
-                // Exclude very bright stars we already have manually?
-                // Or just draw them all as background (points) and let manual ones (images/labels) overlay.
-                this.backgroundStars.push({
-                    ra: raHours,
-                    dec: dec,
-                    mag: mag,
-                    color: mag < 4 ? "#ffffff" : "#aaaaff" // Simple color based on brightness
-                });
-            });
-
-            btn.innerText = `✅ ${stars.length} Estrellas`;
-            // Flash success
-            setTimeout(() => { btn.style.display = 'none'; }, 3000);
-
-        } catch (error) {
-            console.error("Failed to load catalog:", error);
-            btn.innerText = "❌ Error";
-            btn.disabled = false;
-            alert("No se pudo descargar el catálogo. Verifica tu conexión.");
-        }
-    }
+    // Removed external catalog loading to keep app self-contained and focused on local data
 
     nextTourStop() {
         const now = new Date();
@@ -667,7 +935,7 @@ class App {
         this.tooltip.style.top = (y + 15) + 'px';
 
         document.getElementById('tooltip-name').innerText = obj.name;
-        document.getElementById('tooltip-dist').innerText = obj.dist ? `Distancia: ${obj.dist}` : '';
+        document.getElementById('tooltip-dist').innerText = obj.dist ? `Distancia: ${obj.dist} ` : '';
         document.getElementById('tooltip-desc').innerText = obj.desc || "Sin datos adicionales.";
     }
 
@@ -689,7 +957,7 @@ class App {
             const randomPlace = OBSERVABLE_PLACES[Math.floor(Math.random() * OBSERVABLE_PLACES.length)];
 
             factEl.innerText = randomFact;
-            placeEl.innerHTML = `<strong>${randomPlace.name}</strong><br>${randomPlace.desc}`;
+            placeEl.innerHTML = `< strong > ${randomPlace.name}</strong > <br>${randomPlace.desc}`;
 
             // Fade in
             factEl.classList.remove('fade-out');
@@ -708,11 +976,11 @@ class App {
         const moonVis = moonHor.alt > 0;
 
         let html = `<div class="summary-item">
-            <strong>Luna:</strong> ${moon.phaseName} <br>
-            <span class="${moonVis ? 'visible' : 'not-visible'}">
-                ${moonVis ? 'Visible ahora' : 'Bajo el horizonte'}
-            </span>
-        </div>`;
+                    <strong>Luna:</strong> ${moon.phaseName} <br>
+                        <span class="${moonVis ? 'visible' : 'not-visible'}">
+                            ${moonVis ? 'Visible ahora' : 'Bajo el horizonte'}
+                        </span>
+                </div>`;
 
         // 2. Check Planets
         const visiblePlanets = [];
@@ -729,6 +997,41 @@ class App {
             html += `<span class="not-visible">Ninguno por ahora</span>`;
         }
         html += `</div>`;
+
+        // 3. Local Events from Planetario de Medellín
+        if (typeof LOCAL_EVENTS !== 'undefined') {
+            html += `<div class="summary-item" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+                <strong>Eventos del Mes (Planetario Medellín):</strong><br>
+                <ul style="padding-left: 15px; margin: 5px 0; font-size: 0.9em; color: #aaddff;">`;
+
+            // Show next 2 upcoming events
+            const today = now.toISOString().split('T')[0];
+            const upcoming = LOCAL_EVENTS.filter(e => e.date >= today).slice(0, 3);
+
+            if (upcoming.length > 0) {
+                upcoming.forEach(e => {
+                    html += `<li>${e.date.slice(5)}: ${e.desc}</li>`;
+                });
+            } else {
+                html += `<li>Consulta la programación del Planetario.</li>`;
+            }
+            html += `</ul></div>`;
+        }
+
+        // 4. Diario Estelar (Cuerpos registrados)
+        if (STARLOG.length > 0) {
+            html += `<div class="summary-item" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+            <strong>📖 Tu Diario Estelar:</strong><br>
+            <ul style="padding-left: 15px; margin: 5px 0; font-size: 0.85em; color: var(--text-secondary); max-height: 80px; overflow-y: auto;">`;
+
+            // Mostrar solo los ultimos 5 registrados
+            const recentLogs = STARLOG.slice().reverse().slice(0, 5);
+            recentLogs.forEach(log => {
+                html += `<li>${log.name} <em>(${log.date})</em></li>`;
+            });
+
+            html += `</ul></div>`;
+        }
 
         summaryEl.innerHTML = html;
     }
@@ -777,7 +1080,23 @@ class App {
             }
         });
 
-        // 0.5 Draw Horizon (Mountains)
+        // 0.5 Draw GALAXIES (New - Deep Sky Objects)
+        if (typeof GALAXIES !== 'undefined') {
+            GALAXIES.forEach(galaxy => {
+                const pos = this.engine.equatorialToHorizontal(galaxy.ra, galaxy.dec, lst);
+                const screenPos = this.renderer.project(pos.alt, pos.az);
+
+                if (screenPos) {
+                    const isHovered = this.hoveredObject && this.hoveredObject.name === galaxy.name;
+                    const scale = isHovered ? 1.5 : 1.0;
+
+                    this.renderer.drawGalaxy(screenPos.x, screenPos.y, galaxy, scale);
+                    this.visibleObjects[galaxy.name] = { x: screenPos.x, y: screenPos.y, data: galaxy };
+                }
+            });
+        }
+
+        // 0.6 Draw Horizon (Mountains)
         this.renderer.drawHorizon();
 
         // 1. Bright Stars (Interactive)
@@ -786,6 +1105,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
+                // Determine scale based on hover
+                const isHovered = this.hoveredObject && this.hoveredObject.name === star.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
                 // Twinkle effect
                 const time = Date.now() * 0.002;
                 // Unique phase for each star based on its RA
@@ -793,7 +1116,7 @@ class App {
                 const twinkle = 0.7 + 0.3 * Math.sin(time + randomPhase);
 
                 this.renderer.ctx.globalAlpha = twinkle;
-                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name);
+                this.renderer.drawStar(screenPos.x, screenPos.y, star.mag, star.color, star.name, scale);
                 this.renderer.ctx.globalAlpha = 1.0; // Reset
 
                 starMap[star.name] = screenPos;
@@ -809,7 +1132,10 @@ class App {
             const screenPos = this.renderer.project(pos.alt, pos.az);
 
             if (screenPos) {
-                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet);
+                const isHovered = this.hoveredObject && this.hoveredObject.name === planet.name;
+                const scale = isHovered ? 1.5 : 1.0;
+
+                this.renderer.drawPlanet(screenPos.x, screenPos.y, planet, scale);
                 this.visibleObjects[planet.name] = { x: screenPos.x, y: screenPos.y, data: planet };
             }
         });
@@ -834,7 +1160,7 @@ class App {
             });
         }
 
-        // 4. Draw Horizon Compass
+        // 5. Draw Horizon Compass
         const cardinals = [
             { name: "N", az: 0 }, { name: "E", az: 90 }, { name: "S", az: 180 }, { name: "O", az: 270 }
         ];
@@ -850,6 +1176,34 @@ class App {
                 this.renderer.ctx.fillRect(pos.x - 1, pos.y - 5, 2, 10); // Marker
             }
         });
+
+        // 6. Draw ISS (Fake pseudo-orbit)
+        // La ISS cruza la boveda celeste en aprox 5-8 minutos visible. 
+        // Generamos una alt/az artificial basada en Date.now()
+        const simTime = Date.now() / 1000; // Segundos
+        // Un ciclo orbital completo artificial cada 300 segundos en pantalla
+        const orbitPhase = (simTime % 300) / 300;
+
+        // Simular que va de Oeste a Este cruzando cerca del Zenit
+        const issAz = 270 + (orbitPhase * 180); // 270 (W) -> 0 -> 90 (E)
+        // Altura es parabólica peaking a 80 deg (casi zenit)
+        const issAlt = 80 * Math.sin(orbitPhase * Math.PI);
+
+        if (issAlt > 0) {
+            const screenPos = this.renderer.project(issAlt, issAz);
+            if (screenPos) {
+                const isHovered = this.hoveredObject && this.hoveredObject.name === "ISS (Estación Espacial)";
+                const scale = isHovered ? 1.5 : 1.0;
+
+                this.renderer.drawSatellite(screenPos.x, screenPos.y, "ISS");
+
+                // Allow hovering and clicking log to ISS as well!
+                this.visibleObjects["ISS"] = {
+                    x: screenPos.x, y: screenPos.y,
+                    data: { name: "ISS (Estación Espacial)", dist: "408 km LEO", desc: "La nave espacial más grande jamás construida." }
+                };
+            }
+        }
     }
 
     startLoop() {
@@ -867,12 +1221,17 @@ class App {
 }
 
 // Start App
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
     try {
         if (typeof AstronomyEngine === 'undefined') throw new Error("AstronomyEngine class not found. Check app.js syntax.");
         if (typeof LOCATION === 'undefined') throw new Error("LOCATION not found. Check data.js loading.");
-        new App();
+        const app = new App();
+
+        // Sincronizar clima real de Envigado cada 30 mins
+        app.fetchWeatherData();
+        setInterval(() => app.fetchWeatherData(), 1800000);
+
     } catch (e) {
         alert("Startup Error: " + e.message);
     }
-};
+});
